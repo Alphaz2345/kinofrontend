@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KINO — Forside</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .hero {
+            position: relative; overflow: hidden;
+            padding: 5rem 2rem 4rem; text-align: center;
+            background: radial-gradient(ellipse 100% 80% at 50% 0%, rgba(230,184,74,0.07) 0%, transparent 70%);
+        }
+        .hero h1 {
+            font-family: 'Bebas Neue', cursive;
+            font-size: clamp(4rem,10vw,7rem);
+            letter-spacing: 0.06em; line-height: 0.95;
+        }
+        .hero h1 span { color: var(--gold); }
+        .hero p { color: var(--text-dim); font-size: 1.05rem; margin: 1.2rem 0 2rem; }
+
+        .search-bar {
+            display: flex; gap: 0.75rem; align-items: center;
+            max-width: 700px; margin: 0 auto 2.5rem; flex-wrap: wrap;
+            padding: 0 2rem;
+        }
+        .search-input {
+            flex: 1; min-width: 200px;
+            background: var(--card); border: 1px solid var(--border);
+            color: var(--text); font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem; padding: 0.65rem 1rem;
+            border-radius: var(--r); outline: none; transition: .2s;
+        }
+        .search-input:focus { border-color: var(--gold); }
+
+        .movie-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px,1fr));
+            gap: 1.2rem; padding: 0 2rem 3rem;
+        }
+        .movie-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--r); overflow: hidden;
+            cursor: pointer; transition: .25s; position: relative;
+            text-decoration: none; display: block; color: inherit;
+        }
+        .movie-card:hover {
+            transform: translateY(-4px); border-color: var(--gold);
+            box-shadow: 0 8px 30px rgba(230,184,74,0.12);
+        }
+        .movie-poster {
+            width: 100%; aspect-ratio: 2/3;
+            background: var(--surface);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 3.5rem; position: relative;
+        }
+        .movie-poster::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
+        }
+        .age-badge {
+            position: absolute; top: 8px; right: 8px; z-index: 2;
+            background: rgba(0,0,0,0.85); border: 1px solid var(--border);
+            color: var(--gold); font-size: 0.6rem; font-weight: 700;
+            padding: 0.2rem 0.45rem; border-radius: 4px; letter-spacing: 0.08em;
+        }
+        .movie-info { padding: 0.9rem; }
+        .movie-title { font-weight: 600; font-size: 0.9rem; line-height: 1.25; margin-bottom: 0.4rem; }
+        .movie-meta  { font-size: 0.72rem; color: var(--text-dim); display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .cat-tag {
+            background: var(--surface); border: 1px solid var(--border);
+            padding: 0.15rem 0.5rem; border-radius: 4px;
+            font-size: 0.65rem; color: var(--text-dim);
+        }
+        #emptyMsg { text-align: center; padding: 3rem; color: var(--text-dim); display: none; }
+    </style>
+</head>
+<body>
+
+<!-- NAVIGATION -->
+<nav>
+    <a class="logo" href="index.html">🎬 KINO</a>
+    <div class="nav-links">
+        <a class="nav-link active" href="index.html">Forside</a>
+        <a class="nav-link" href="reservation-lookup.html">Mine reservationer</a>
+    </div>
+    <div class="nav-auth" id="navAuth">
+        <a class="btn btn-outline" href="login.html">Log ind</a>
+        <a class="btn btn-primary" href="register.html">Opret konto</a>
+    </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+    <h1>DIN <span>BIOGRAF</span><br>OPLEVELSE</h1>
+    <p>Book billetter til dine yndlingsfilm — nemt og hurtigt.</p>
+    <a class="btn btn-primary" href="#films" style="font-size:1rem;padding:0.7rem 2rem;">Se alle film ↓</a>
+</div>
+
+<!-- SØG & FILTER -->
+<div class="search-bar" id="films">
+    <input class="search-input" id="searchInput" placeholder="🔍  Søg efter film..." oninput="filterMovies()">
+    <select class="form-select" id="catFilter" onchange="filterMovies()" style="width:auto;">
+        <option value="">Alle kategorier</option>
+        <option>Horror</option><option>Romance</option><option>Action</option>
+        <option>Science Fiction</option><option>Comedy</option>
+        <option>Drama</option><option>Thriller</option><option>Animation</option>
+    </select>
+</div>
+
+<p class="section-label" style="padding:0 2rem;">Nu på programmet</p>
+<div class="movie-grid" id="movieGrid"></div>
+<p id="emptyMsg">Ingen film fundet.</p>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="js/api.js"></script>
+<script>
+    let allMovies = [];
+
+    async function loadMovies() {
+        try {
+            allMovies = await MovieAPI.getAll();
+            renderMovies(allMovies);
+        } catch (e) {
+            showToast('Kunne ikke hente film: ' + e.message, 'error');
+        }
+    }
+
+    function renderMovies(list) {
+        const grid = document.getElementById('movieGrid');
+        const empty = document.getElementById('emptyMsg');
+        if (list.length === 0) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+        empty.style.display = 'none';
+        grid.innerHTML = list.map(m => `
+      <a class="movie-card animate-in" href="movie-detail.html?id=${m.id}">
+        <div class="movie-poster">
+          <div class="age-badge">${m.ageLimit === 0 ? 'Alle' : m.ageLimit + '+'}</div>
+          🎬
+        </div>
+        <div class="movie-info">
+          <div class="movie-title">${m.title}</div>
+          <div class="movie-meta">
+            <span class="cat-tag">${m.category?.name ?? ''}</span>
+            <span>${m.durationMinutes} min</span>
+          </div>
+        </div>
+      </a>
+    `).join('');
+    }
+
+    function filterMovies() {
+        const q   = document.getElementById('searchInput').value.toLowerCase();
+        const cat = document.getElementById('catFilter').value;
+        renderMovies(allMovies.filter(m =>
+            (q === '' || m.title.toLowerCase().includes(q)) &&
+            (cat === '' || m.category?.name === cat)
+        ));
+    }
+
+    // Vis navn i nav hvis logget ind
+    const customer = Session.getCustomer();
+    if (customer) {
+        document.getElementById('navAuth').innerHTML = `
+      <span style="color:var(--text-dim);font-size:0.85rem">${customer.email}</span>
+      <button class="btn btn-outline" onclick="Session.logout();location.reload()">Log ud</button>
+    `;
+    }
+
+    loadMovies();
+</script>
+</body>
+</html>

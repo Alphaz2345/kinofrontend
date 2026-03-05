@@ -94,7 +94,7 @@
 
     async function cancelRes() {
         if (!currentResId) return;
-        if (!confirm('Er du sikker på at du vil annullere denne reservation?')) return;
+        if (!confirm('Er Du sikker på at du vil annullere denne reservation?')) return;
         try {
             await ReservationAPI.cancel(currentResId);
             showToast('Reservation annulleret', 'success');

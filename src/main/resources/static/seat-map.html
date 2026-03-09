@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KINO — Vælg sæder</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .screen {
+            text-align: center; margin-bottom: 2rem;
+            padding: 0.6rem;
+            background: linear-gradient(90deg, transparent, var(--border), transparent);
+            border-radius: 4px; font-size: 0.7rem; color: var(--text-dim);
+            text-transform: uppercase; letter-spacing: 0.15em;
+        }
+        .seat-legend { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 1.5rem; }
+        .legend-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--text-dim); }
+        .legend-swatch { width: 18px; height: 18px; border-radius: 3px; }
+        .l-available { background: var(--surface); border: 1px solid var(--border); }
+        .l-selected  { background: var(--gold); }
+        .l-taken     { background: #1e1318; border: 1px solid #2a1a1a; }
+
+        .seat-grid { display: flex; flex-direction: column; gap: 0.4rem; align-items: center; margin-bottom: 2rem; }
+        .seat-row  { display: flex; gap: 0.4rem; align-items: center; }
+        .row-label { width: 24px; text-align: right; font-size: 0.68rem; color: var(--text-dim); margin-right: 0.4rem; }
+        .seat-btn  {
+            width: 28px; height: 28px; border-radius: 5px;
+            border: none; cursor: pointer; font-size: 0.55rem; font-weight: 700;
+            transition: .15s;
+        }
+        .seat-btn:hover:not(:disabled) { transform: scale(1.15); z-index: 1; }
+        .seat-available { background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); }
+        .seat-available:hover { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+        .seat-selected  { background: var(--gold); border: 1px solid var(--gold); color: #0c0b0d; }
+        .seat-taken     { background: #1e1318; border: 1px solid #2a1a1a; color: #3a2828; cursor: not-allowed; }
+
+        .selected-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; min-height: 32px; }
+        .seat-chip {
+            background: var(--gold-dim); border: 1px solid rgba(230,184,74,0.3);
+            color: var(--gold); font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 4px;
+        }
+        .price-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.8rem 0; border-top: 1px solid var(--border); margin-top: 0.8rem;
+        }
+        .price-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); }
+        .price-value { font-family: 'Bebas Neue', cursive; font-size: 1.8rem; color: var(--gold); }
+
+        /* BILLET MODAL */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            display: none; align-items: center; justify-content: center;
+            z-index: 200; padding: 1rem;
+        }
+        .modal-overlay.open { display: flex; animation: fadeIn .3s ease; }
+        .ticket-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 2.5rem; max-width: 400px; width: 100%;
+            text-align: center;
+        }
+        .ticket-title { font-family: 'Bebas Neue', cursive; font-size: 2.5rem; letter-spacing: 0.08em; color: var(--gold); }
+        .ticket-movie { font-size: 1.1rem; font-weight: 600; margin: 0.5rem 0; }
+        .ticket-meta  { color: var(--text-dim); font-size: 0.85rem; line-height: 2; margin-bottom: 1.5rem; }
+        .ticket-code  {
+            font-family: monospace; font-size: 0.8rem; letter-spacing: 0.2em;
+            color: var(--text-dim); background: var(--surface); border-radius: 6px;
+            padding: 0.6rem; border: 1px dashed var(--border); margin-bottom: 1.5rem;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <a class="logo" href="index.html">🎬 KINO</a>
+    <div class="nav-links">
+        <a class="nav-link" href="index.html">Forside</a>
+    </div>
+</nav>
+
+<div class="page-wrap" style="max-width:800px">
+    <a class="back-link" id="backLink" href="index.html">← Tilbage til film</a>
+    <h2 class="page-title" id="pageTitle">Vælg sæder</h2>
+    <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:1.5rem" id="pageSub"></p>
+
+    <div class="screen">⬛ LÆRRED ⬛</div>
+
+    <div class="seat-legend">
+        <div class="legend-item"><div class="legend-swatch l-available"></div>Ledig</div>
+        <div class="legend-item"><div class="legend-swatch l-selected"></div>Valgt</div>
+        <div class="legend-item"><div class="legend-swatch l-taken"></div>Optaget</div>
+    </div>
+
+    <div class="seat-grid" id="seatGrid"></div>
+
+    <!-- BOOKING PANEL -->
+    <div class="card">
+        <h3 style="font-family:'Bebas Neue',cursive;font-size:1.5rem;letter-spacing:0.05em;margin-bottom:1rem">Afslut booking</h3>
+        <div class="selected-chips" id="selectedChips">
+            <span style="color:var(--text-dim);font-size:0.8rem">Vælg sæder ovenfor...</span>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Navn</label>
+            <input class="form-input" id="bookName" placeholder="Dit fulde navn">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Telefonnummer</label>
+            <input class="form-input" id="bookPhone" placeholder="+45 12 34 56 78">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Email (valgfri)</label>
+            <input class="form-input" id="bookEmail" placeholder="din@email.dk">
+        </div>
+        <div class="price-row">
+            <div>
+                <div class="price-label">Total</div>
+                <div class="price-value" id="totalPrice">0 kr</div>
+            </div>
+            <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
+                <button class="btn btn-outline" onclick="purchaseTickets()">Køb nu</button>
+                <button class="btn btn-primary" onclick="makeReservation()">Reserver</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- BILLET MODAL -->
+<div class="modal-overlay" id="ticketModal">
+    <div class="ticket-card">
+        <div class="ticket-title">🎟 BILLET</div>
+        <div class="ticket-movie" id="tMovie"></div>
+        <div class="ticket-meta" id="tMeta"></div>
+        <div class="ticket-code" id="tCode"></div>
+        <div style="display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="closeTicket()">⬇ Download</button>
+            <button class="btn btn-outline" onclick="closeTicket()">Luk</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="js/api.js"></script>
+<script>
+    const params     = new URLSearchParams(location.search);
+    const showingId  = parseInt(params.get('showingId'));
+    const movieId    = parseInt(params.get('movieId'));
+    const PRICE      = 115;
+
+    let selectedSeats = [];
+    let currentShowing = null;
+
+    document.getElementById('backLink').href = `movie-detail.html?id=${movieId}`;
+
+    async function loadPage() {
+        if (!showingId) { location.href = 'index.html'; return; }
+        try {
+            const [seatMap, showing] = await Promise.all([
+                SeatAPI.getSeatMap(showingId),
+                ShowingAPI.getById(showingId)
+            ]);
+            currentShowing = showing;
+
+            // Alderscheck (SCRUM-31, 32)
+            const movie = await MovieAPI.getById(movieId);
+            if (movie.ageLimit > 0) {
+                const ok = confirm(`Denne film kræver aldersgrænse ${movie.ageLimit}+.\nBekræft at du opfylder alderskravet.`);
+                if (!ok) { location.href = `movie-detail.html?id=${movieId}`; return; }
+            }
+
+            document.getElementById('pageTitle').textContent = movie.title;
+            const dt = new Date(showing.startTime);
+            document.getElementById('pageSub').textContent =
+                `${showing.theatre.name} · ${dt.toLocaleDateString('da-DK',{weekday:'long',day:'numeric',month:'long'})} kl. ${dt.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'})}`;
+
+            renderSeatMap(seatMap, showing.theatre);
+        } catch (e) {
+            showToast('Fejl: ' + e.message, 'error');
+        }
+    }
+
+    function renderSeatMap(seats, theatre) {
+        const grid = document.getElementById('seatGrid');
+        grid.innerHTML = '';
+        for (let r = 1; r <= theatre.rows; r++) {
+            const rowEl = document.createElement('div');
+            rowEl.className = 'seat-row';
+            const label = document.createElement('div');
+            label.className = 'row-label';
+            label.textContent = r;
+            rowEl.appendChild(label);
+
+            const rowSeats = seats.filter(s => s.row === r).sort((a,b) => a.seat - b.seat);
+            rowSeats.forEach(s => {
+                const btn = document.createElement('button');
+                btn.className = 'seat-btn ' + (s.occupied ? 'seat-taken' : 'seat-available');
+                btn.title     = `Række ${s.row}, Sæde ${s.seat}`;
+                btn.disabled  = s.occupied;
+                btn.onclick   = () => toggleSeat(s, btn);
+                rowEl.appendChild(btn);
+            });
+            grid.appendChild(rowEl);
+        }
+    }
+
+    function toggleSeat(seat, btn) {
+        const idx = selectedSeats.findIndex(s => s.id === seat.id);
+        if (idx > -1) {
+            selectedSeats.splice(idx, 1);
+            btn.className = 'seat-btn seat-available';
+        } else {
+            selectedSeats.push(seat);
+            btn.className = 'seat-btn seat-selected';
+        }
+        updatePanel();
+    }
+
+    function updatePanel() {
+        const chips = document.getElementById('selectedChips');
+        chips.innerHTML = selectedSeats.length === 0
+            ? '<span style="color:var(--text-dim);font-size:0.8rem">Vælg sæder ovenfor...</span>'
+            : selectedSeats.map(s => `<span class="seat-chip">R${s.row}·S${s.seat}</span>`).join('');
+        document.getElementById('totalPrice').textContent = (selectedSeats.length * PRICE) + ' kr';
+    }
+
+    async function makeReservation() {
+        if (selectedSeats.length === 0) { showToast('Vælg mindst ét sæde', 'error'); return; }
+        const name  = document.getElementById('bookName').value.trim();
+        const phone = document.getElementById('bookPhone').value.trim();
+        if (!name || !phone) { showToast('Udfyld navn og telefon', 'error'); return; }
+
+        try {
+            const res = await ReservationAPI.create(
+                showingId,
+                selectedSeats.map(s => s.id),
+                name, phone
+            );
+            showToast(`Reservation oprettet! Kode: ${res.reservationCode}`, 'success');
+            setTimeout(() => location.href = 'index.html', 2000);
+        } catch (e) {
+            showToast('Fejl: ' + e.message, 'error');
+        }
+    }
+
+    async function purchaseTickets() {
+        if (selectedSeats.length === 0) { showToast('Vælg mindst ét sæde', 'error'); return; }
+        const customer = Session.getCustomer();
+        try {
+            const tickets = await TicketAPI.purchase(
+                showingId,
+                selectedSeats.map(s => s.id),
+                customer?.id ?? null
+            );
+            // Vis første billet
+            const t = tickets[0];
+            document.getElementById('tMovie').textContent = currentShowing.movie?.title ?? '';
+            document.getElementById('tMeta').innerHTML = `
+        <strong>${currentShowing.theatre?.name}</strong><br>
+        ${new Date(currentShowing.startTime).toLocaleString('da-DK')}<br>
+        Sæder: ${selectedSeats.map(s=>`R${s.row}·S${s.seat}`).join(', ')}<br>
+        Pris: ${tickets.length * PRICE} kr
+      `;
+            document.getElementById('tCode').textContent = t.ticketCode;
+            document.getElementById('ticketModal').classList.add('open');
+        } catch (e) {
+            showToast('Fejl: ' + e.message, 'error');
+        }
+    }
+
+    function closeTicket() {
+        document.getElementById('ticketModal').classList.remove('open');
+        location.href = 'index.html';
+    }
+
+    loadPage();
+</script>
+</body>
+</html>

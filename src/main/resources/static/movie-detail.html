@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KINO — Film</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .detail-hero { display: flex; gap: 2rem; margin-bottom: 2.5rem; flex-wrap: wrap; }
+        .detail-poster {
+            width: 200px; height: 300px; flex-shrink: 0;
+            background: var(--card); border-radius: var(--r);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 5rem; border: 1px solid var(--border);
+        }
+        .detail-info h2 {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 2.8rem; letter-spacing: 0.04em; line-height: 1;
+        }
+        .detail-meta { display: flex; gap: 0.8rem; flex-wrap: wrap; margin: 0.8rem 0 1rem; }
+        .detail-desc { color: var(--text-dim); line-height: 1.7; font-size: 0.9rem; max-width: 500px; }
+
+        .showings-title {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 1.6rem; letter-spacing: 0.05em; margin-bottom: 1rem;
+        }
+        .showing-row {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--r); display: flex; align-items: center;
+            gap: 1.5rem; padding: 1rem 1.2rem; margin-bottom: 0.8rem; transition: .2s;
+        }
+        .showing-row:hover { border-color: var(--gold-dim); }
+        .showing-time {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 1.5rem; color: var(--gold); letter-spacing: 0.05em;
+            flex-shrink: 0;
+        }
+        .showing-info { flex: 1; }
+        .showing-date { font-size: 0.85rem; font-weight: 500; }
+        .showing-theatre { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.15rem; }
+        .seats-ok   { color: var(--green); font-size: 0.78rem; }
+        .seats-low  { color: var(--gold);  font-size: 0.78rem; }
+        .seats-full { color: var(--red);   font-size: 0.78rem; }
+        #noShowings { color: var(--text-dim); padding: 1rem 0; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <a class="logo" href="index.html">🎬 KINO</a>
+    <div class="nav-links">
+        <a class="nav-link" href="index.html">Forside</a>
+        <a class="nav-link" href="reservation-lookup.html">Mine reservationer</a>
+    </div>
+    <div class="nav-auth" id="navAuth">
+        <a class="btn btn-outline" href="login.html">Log ind</a>
+        <a class="btn btn-primary" href="register.html">Opret konto</a>
+    </div>
+</nav>
+
+<div class="page-wrap">
+    <a class="back-link" href="index.html">← Tilbage til oversigt</a>
+
+    <!-- FILMINFO -->
+    <div class="detail-hero">
+        <div class="detail-poster" id="detailPoster">🎬</div>
+        <div class="detail-info">
+            <h2 id="detailTitle">Indlæser...</h2>
+            <div class="detail-meta" id="detailMeta"></div>
+            <p class="detail-desc" id="detailDesc"></p>
+        </div>
+    </div>
+
+    <!-- FORESTILLINGER -->
+    <div class="showings-title">Kommende forestillinger</div>
+    <div id="showingsList"></div>
+    <p id="noShowings" style="display:none">Ingen forestillinger fundet.</p>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="js/api.js"></script>
+<script>
+    const params  = new URLSearchParams(location.search);
+    const movieId = parseInt(params.get('id'));
+
+    async function loadPage() {
+        if (!movieId) { location.href = 'index.html'; return; }
+        try {
+            const [movie, showings] = await Promise.all([
+                MovieAPI.getById(movieId),
+                ShowingAPI.getByMovie(movieId)
+            ]);
+            renderMovie(movie);
+            renderShowings(showings, movie);
+        } catch (e) {
+            showToast('Fejl: ' + e.message, 'error');
+        }
+    }
+
+    function renderMovie(m) {
+        document.title = `KINO — ${m.title}`;
+        document.getElementById('detailTitle').textContent = m.title;
+        document.getElementById('detailDesc').textContent  = m.description;
+        document.getElementById('detailMeta').innerHTML = `
+      <span class="meta-chip meta-chip-gold">🔞 ${m.ageLimit === 0 ? 'Alle aldre' : m.ageLimit + '+'}</span>
+      <span class="meta-chip">${m.category?.name ?? ''}</span>
+      <span class="meta-chip">⏱ ${m.durationMinutes} min</span>
+    `;
+    }
+
+    function renderShowings(showings, movie) {
+        const list    = document.getElementById('showingsList');
+        const noMsg   = document.getElementById('noShowings');
+        const active  = showings.filter(s => s.status !== 'CANCELLED');
+        if (active.length === 0) { noMsg.style.display = 'block'; return; }
+
+        list.innerHTML = active.map(s => {
+            const dt       = new Date(s.startTime);
+            const dateStr  = dt.toLocaleDateString('da-DK', { weekday:'short', day:'numeric', month:'short' });
+            const timeStr  = dt.toLocaleTimeString('da-DK', { hour:'2-digit', minute:'2-digit' });
+            const total    = s.theatre.rows * s.theatre.seatsPerRow;
+            const statusCls = s.status === 'STARTED' ? 'badge-started' : 'badge-scheduled';
+            const statusLbl = s.status === 'STARTED' ? 'I gang' : 'Planlagt';
+
+            return `
+        <div class="showing-row">
+          <div class="showing-time">${timeStr}</div>
+          <div class="showing-info">
+            <div class="showing-date">${dateStr}</div>
+            <div class="showing-theatre">${s.theatre.name} · ${total} sæder</div>
+          </div>
+          <span class="status-badge ${statusCls}">${statusLbl}</span>
+          ${s.status !== 'STARTED'
+                ? `<a class="btn btn-primary btn-sm" href="seat-map.html?showingId=${s.id}&movieId=${movie.id}">Vælg sæder</a>`
+                : `<button class="btn btn-outline btn-sm" disabled>I gang</button>`}
+        </div>
+      `;
+        }).join('');
+    }
+
+    // Nav login-status
+    const customer = Session.getCustomer();
+    if (customer) {
+        document.getElementById('navAuth').innerHTML = `
+      <span style="color:var(--text-dim);font-size:0.85rem">${customer.email}</span>
+      <button class="btn btn-outline" onclick="Session.logout();location.href='index.html'">Log ud</button>
+    `;
+    }
+
+    loadPage();
+</script>
+</body>
+</html>

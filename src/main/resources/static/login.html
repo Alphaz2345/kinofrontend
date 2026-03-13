@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KINO — Log ind</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav>
+    <a class="logo" href="index.html">🎬 KINO</a>
+</nav>
+
+<div class="page-wrap-sm" style="margin-top:3rem">
+    <a class="back-link" href="index.html">← Tilbage</a>
+    <h2 class="page-title">Log ind</h2>
+    <p style="color:var(--text-dim);margin-bottom:1.5rem;font-size:0.9rem">Adgang til din konto og billetter</p>
+
+    <div class="card">
+        <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" id="loginEmail" type="email" placeholder="din@email.dk">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Adgangskode</label>
+            <input class="form-input" id="loginPwd" type="password" placeholder="••••••••"
+                   onkeydown="if(event.key==='Enter') loginCustomer()">
+        </div>
+        <button class="btn btn-primary btn-full" style="margin-top:0.5rem" onclick="loginCustomer()">Log ind</button>
+        <div style="text-align:center;margin-top:1rem">
+            <a href="register.html" style="color:var(--text-dim);font-size:0.82rem">Har du ikke en konto? Opret her</a>
+        </div>
+        <div style="border-top:1px solid var(--border);margin-top:1.5rem;padding-top:1rem;text-align:center">
+            <a class="btn btn-outline btn-sm" href="admin-dashboard.html">🔒 Medarbejder login</a>
+        </div>
+    </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+<script src="js/api.js"></script>
+<script>
+    async function loginCustomer() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const pwd   = document.getElementById('loginPwd').value;
+        if (!email || !pwd) { showToast('Udfyld email og adgangskode', 'error'); return; }
+        try {
+            const customer = await CustomerAPI.login(email, pwd);
+            Session.setCustomer(customer);
+            showToast('Velkommen, ' + customer.fullName + '!', 'success');
+            setTimeout(() => location.href = 'index.html', 1000);
+        } catch (e) {
+            showToast('Forkert email eller adgangskode', 'error');
+        }
+    }
+</script>
+</body>
+</html>
